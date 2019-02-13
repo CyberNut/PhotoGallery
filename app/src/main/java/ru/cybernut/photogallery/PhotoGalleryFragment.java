@@ -1,5 +1,6 @@
 package ru.cybernut.photogallery;
 
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -11,9 +12,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
+import android.widget.ImageView;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,12 +22,26 @@ public class PhotoGalleryFragment extends Fragment {
 
     private RecyclerView recyclerView;
     private List<GalleryItem> galleryItems = new ArrayList<>();
+    private ThumbnailDownloader<PhotoHolder> thumbnailDownloader;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
         new FetchItemTask().execute();
+
+        thumbnailDownloader = new ThumbnailDownloader<>();
+        thumbnailDownloader.start();
+        thumbnailDownloader.getLooper();
+        Log.i(TAG, "Background thread started.");
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        thumbnailDownloader.quit();
+        Log.i(TAG, "Background thread destroyed.");
     }
 
     @Nullable
@@ -64,15 +78,15 @@ public class PhotoGalleryFragment extends Fragment {
     }
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
-        private TextView textView;
+        private ImageView itemImageView;
 
         public PhotoHolder(@NonNull View itemView) {
             super(itemView);
-            this.textView = (TextView)itemView;
+            this.itemImageView = (ImageView) itemView.findViewById(R.id.item_image_view);
         }
 
-        public void bindGalleryItem(GalleryItem item) {
-            textView.setText(item.toString());
+        public void bindDrawable(Drawable drawable) {
+            itemImageView.setImageDrawable(drawable);
         }
     }
 
@@ -86,15 +100,18 @@ public class PhotoGalleryFragment extends Fragment {
 
         @NonNull
         @Override
-        public PhotoHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int position) {
-            TextView textView = new TextView(getActivity());
-            return new PhotoHolder(textView);
+        public PhotoHolder onCreateViewHolder(@NonNull ViewGroup parent, int position) {
+            LayoutInflater inflater = LayoutInflater.from(getActivity());
+            View v = inflater.inflate(R.layout.gallery_item, parent, false);
+            return new PhotoHolder(v);
         }
 
         @Override
         public void onBindViewHolder(@NonNull PhotoHolder photoHolder, int position) {
             GalleryItem galleryItem = galleryItemList.get(position);
-            photoHolder.bindGalleryItem(galleryItem);
+            Drawable placeHolder = getResources().getDrawable(R.drawable.bill_up_close);
+            photoHolder.bindDrawable(placeHolder);
+            thumbnailDownloader.queueThumbnail(photoHolder, galleryItem.getUrl());
         }
 
         @Override

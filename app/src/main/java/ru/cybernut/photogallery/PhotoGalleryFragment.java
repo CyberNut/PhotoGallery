@@ -1,8 +1,11 @@
 package ru.cybernut.photogallery;
 
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
@@ -30,7 +33,15 @@ public class PhotoGalleryFragment extends Fragment {
         setRetainInstance(true);
         new FetchItemTask().execute();
 
-        thumbnailDownloader = new ThumbnailDownloader<>();
+        Handler responseHandler = new Handler();
+        thumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
+        thumbnailDownloader.setThumbnailDownloadListener(new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
+            @Override
+            public void onThumbnailDownloaded(PhotoHolder photoHolder, Bitmap bitmap) {
+                Drawable drawable = new BitmapDrawable(getResources(), bitmap);
+                photoHolder.bindDrawable(drawable);
+            }
+        });
         thumbnailDownloader.start();
         thumbnailDownloader.getLooper();
         Log.i(TAG, "Background thread started.");
@@ -42,6 +53,12 @@ public class PhotoGalleryFragment extends Fragment {
 
         thumbnailDownloader.quit();
         Log.i(TAG, "Background thread destroyed.");
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        thumbnailDownloader.clearQueue();
     }
 
     @Nullable
